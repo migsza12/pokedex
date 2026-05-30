@@ -1,0 +1,295 @@
+:root {
+    --bg-main: #121214;
+    --bg-card: #1e1e24;
+    --bg-input: #121214;
+    --border-color: #29292e;
+    --primary: #ff3e3e;
+    --text-main: #e1e1e6;
+    --text-muted: #7c7c8a;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    display: flex;
+    justify-content: center;
+    padding: 20px 10px;
+    min-height: 100vh;
+}
+
+.pokedex-container {
+    background-color: var(--bg-card);
+    max-width: 100%;
+    width: 100%;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    padding: 20px;
+    border: 1px solid var(--border-color);
+}
+
+.pokemon-id {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: bold;
+}
+
+.pokemon-name {
+    font-size: 1.1rem;
+    text-transform: capitalize;
+    color: #ffffff;
+    margin: 4px 0;
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pokemon-img {
+    width: 90px;
+    height: 90px;
+    object-fit: contain;
+    margin: 8px 0;
+}
+
+.types-container {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    width: 100%;
+    flex-wrap: wrap;
+}
+
+.type-badge {
+    padding: 4px 8px;
+    border-radius: 6px;
+    color: white;
+    font-size: 0.65rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.hidden { display: none !important; }
+
+/* Media Query para telas maiores */
+@media (min-width: 768px) {
+    body { padding: 40px 20px; }
+    .pokedex-container { padding: 30px; }
+}
+
+/* Wrapper para permitir mudar o fundo da página de detalhes dinamicamente */
+.detail-page-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    transition: background 0.5s ease;
+    border-radius: 16px;
+    padding: 10px;
+}
+
+/* Botão de Grito/Som */
+.cry-btn {
+    background: #202024;
+    border: 1px solid var(--border-color);
+    color: #fff;
+    padding: 8px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: bold;
+    margin-top: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.cry-btn:hover {
+    border-color: var(--primary);
+    background: #2d2d34;
+}
+
+/* Gráfico de Status Base (Stats) */
+.stat-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+}
+
+.stat-name {
+    width: 80px;
+    text-transform: uppercase;
+    font-weight: bold;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.stat-value {
+    width: 35px;
+    text-align: right;
+    font-weight: bold;
+    padding-right: 10px;
+}
+
+.stat-bar-container {
+    flex: 1;
+    background-color: #202024;
+    height: 8px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.stat-bar {
+    height: 100%;
+    width: 0;
+    border-radius: 4px;
+    transition: width 1s ease-in-out; /* Efeito de animação ao abrir */
+}
+
+/* Grid de Fraquezas e Eficiências */
+.damage-group {
+    margin-bottom: 15px;
+}
+
+.damage-group-title {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-weight: bold;
+    margin-bottom: 6px;
+}
+
+.damage-badges-grid {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.damage-badge-wrapper {
+    display: inline-flex;
+    align-items: center;
+    background: #202024;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+}
+
+.damage-badge-wrapper .type-badge {
+    border-radius: 0;
+    padding: 4px 8px;
+}
+
+.damage-multiplier {
+    padding: 0 6px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    color: #ffffff;
+}
+
+.damage-multiplier.weak { color: #ff5c5c; }
+.damage-multiplier.resist { color: #50fa7b; }
+.damage-multiplier.immune { color: #bd93f9; }
+
+/* Estilos de Botão Voltar (adicionado explicitamente, se necessário) */
+.back-btn {
+    display: inline-block;
+    color: var(--text-muted);
+    text-decoration: none;
+    margin-bottom: 20px;
+    font-weight: bold;
+    transition: color 0.2s;
+}
+.back-btn:hover { color: var(--primary); }
+
+.detail-img {
+    width: 200px;
+    height: 200px;
+    object-fit: contain;
+    margin: 20px 0;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.info-section {
+    background: #202024;
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    border: 1px solid var(--border-color);
+}
+
+.info-section h3 {
+    font-size: 1.1rem;
+    color: var(--primary);
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 5px;
+}
+
+.evolution-chain-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.evolution-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-decoration: none;
+    color: var(--text-main);
+    padding: 10px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.evolution-step img {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+}
+
+.evolution-step span {
+    font-size: 0.8rem;
+    margin-top: 5px;
+    text-transform: capitalize;
+}
+
+.evolution-step[href]:hover {
+    border-color: var(--border-color);
+    background: #29292e;
+}
+
+.evolution-arrow {
+    color: var(--text-muted);
+    font-weight: bold;
+}
+
+.moves-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+    list-style: none;
+    padding: 0;
+}
+
+.moves-grid li {
+    background: #29292e;
+    padding: 8px;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 0.85rem;
+    text-transform: capitalize;
+}
