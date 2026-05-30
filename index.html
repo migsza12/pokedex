@@ -2,8 +2,8 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pokédex Ultra - Dark Mode</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>Pokédex Ultra - Dark & Mobile First</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -15,7 +15,7 @@
             <input 
                 type="text" 
                 id="search-input" 
-                placeholder="Busque por nome ou forma (ex: pika, mega, alola)..."
+                placeholder="Busque por nome ou forma (ex: mega, alola)..."
             >
             
             <select id="type-filter">
@@ -41,8 +41,10 @@
             </select>
         </div>
 
-        <div id="pokedex-grid" class="pokedex-grid">
-            <p class="loading">Invocando a base de dados global...</p>
+        <div id="pokedex-grid" class="pokedex-grid"></div>
+
+        <div id="scroll-sentinel" class="scroll-sentinel">
+            <div class="spinner hidden"></div>
         </div>
     </div>
 
