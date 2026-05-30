@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-    <title>Pokédex Ultra - Dark & Mobile First</title>
+    <title>Pokédex Ultra - Filtros Avançados</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -15,30 +15,52 @@
             <input 
                 type="text" 
                 id="search-input" 
-                placeholder="Busque por nome ou forma (ex: mega, alola)..."
+                placeholder="Busque por nome ou ID..."
             >
             
-            <select id="type-filter">
-                <option value="">Todos os Tipos</option>
-                <option value="normal">Normal</option>
-                <option value="fire">Fogo</option>
-                <option value="water">Água</option>
-                <option value="grass">Planta</option>
-                <option value="electric">Elétrico</option>
-                <option value="ice">Gelo</option>
-                <option value="fighting">Lutador</option>
-                <option value="poison">Venenoso</option>
-                <option value="ground">Terra</option>
-                <option value="flying">Voador</option>
-                <option value="psychic">Psíquico</option>
-                <option value="bug">Inseto</option>
-                <option value="rock">Pedra</option>
-                <option value="ghost">Fantasma</option>
-                <option value="dragon">Dragão</option>
-                <option value="dark">Sombrio</option>
-                <option value="steel">Aço</option>
-                <option value="fairy">Fada</option>
-            </select>
+            <div class="select-group">
+                <select id="generation-filter">
+                    <option value="all">Todas as Regiões</option>
+                    <option value="1">Geração 1 (Kanto)</option>
+                    <option value="2">Geração 2 (Johto)</option>
+                    <option value="3">Geração 3 (Hoenn)</option>
+                    <option value="4">Geração 4 (Sinnoh)</option>
+                    <option value="5">Geração 5 (Unova)</option>
+                    <option value="6">Geração 6 (Kalos)</option>
+                    <option value="7">Geração 7 (Alola)</option>
+                    <option value="8">Geração 8 (Galar)</option>
+                    <option value="9">Geração 9 (Paldea)</option>
+                    <option value="extra">Formas Extras / Megas</option>
+                </select>
+
+                <select id="type-filter">
+                    <option value="">Todos os Tipos</option>
+                    <option value="normal">Normal</option>
+                    <option value="fire">Fogo</option>
+                    <option value="water">Água</option>
+                    <option value="grass">Planta</option>
+                    <option value="electric">Elétrico</option>
+                    <option value="ice">Gelo</option>
+                    <option value="fighting">Lutador</option>
+                    <option value="poison">Venenoso</option>
+                    <option value="ground">Terra</option>
+                    <option value="flying">Voador</option>
+                    <option value="psychic">Psíquico</option>
+                    <option value="bug">Inseto</option>
+                    <option value="rock">Pedra</option>
+                    <option value="ghost">Fantasma</option>
+                    <option value="dragon">Dragão</option>
+                    <option value="dark">Sombrio</option>
+                    <option value="steel">Aço</option>
+                    <option value="fairy">Fada</option>
+                </select>
+
+                <select id="sort-order">
+                    <option value="id-asc">Nº do ID (Menor primeiro)</option>
+                    <option value="id-desc">Nº do ID (Maior primeiro)</option>
+                    <option value="name-asc">Nome (A - Z)</option>
+                </select>
+            </div>
         </div>
 
         <div id="pokedex-grid" class="pokedex-grid"></div>

@@ -2,19 +2,23 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <title>Detalhes do Pokémon</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <div class="pokedex-container detail-container">
-        <a href="index.html" class="back-btn">← Voltar para a Lista</a>
-        
-        <div id="pokemon-details">
-            <p class="loading">Carregando dados detalhados e linhagem...</p>
+    <div id="detail-page-wrapper" class="detail-page-wrapper">
+        <div class="pokedex-container detail-container">
+            <a href="index.html" class="back-btn">← Voltar para a Lista</a>
+            
+            <div id="pokemon-details">
+                <p class="loading">Carregando dados, atributos e fraquezas...</p>
+            </div>
         </div>
     </div>
+
+    <audio id="pokemon-cry" th:src=""></audio>
 
     <script src="detalhes.js"></script>
 </body>

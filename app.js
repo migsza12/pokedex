@@ -6,18 +6,33 @@ const typeColors = {
     fairy: '#EE99AC', normal: '#A8A878'
 };
 
+// Intervalos de ID oficiais de cada geração/região na PokeAPI
+const generationRanges = {
+    "1": { min: 1, max: 151 },       // Kanto
+    "2": { min: 152, max: 251 },     // Johto
+    "3": { min: 252, max: 386 },     // Hoenn
+    "4": { min: 387, max: 493 },     // Sinnoh
+    "5": { min: 494, max: 649 },     // Unova
+    "6": { min: 650, max: 721 },     // Kalos
+    "7": { min: 722, max: 809 },     // Alola
+    "8": { min: 810, max: 898 },     // Galar (inclui pequenas variações até 905 dependendo da att)
+    "9": { min: 899, max: 1025 },    // Paldea
+    "extra": { min: 10001, max: 12000 } // Megas, Formas Alola/Galar/Hisui independentes, Gigantamax
+};
+
 const pokedexGrid = document.getElementById('pokedex-grid');
 const searchInput = document.getElementById('search-input');
+const generationFilter = document.getElementById('generation-filter');
 const typeFilter = document.getElementById('type-filter');
+const sortOrder = document.getElementById('sort-order');
 const sentinel = document.getElementById('scroll-sentinel');
 const spinner = sentinel.querySelector('.spinner');
 
-let globalPokemonList = []; // Banco leve com o índice de todos os pokémons
-let filteredPokemonList = []; // Lista atual após aplicar filtros de busca ou tipo
-let currentIndex = 0; // Controla quantos pokémons já foram impressos na tela
-const ITEMS_PER_PAGE = 30; // Quantidade carregada por vez no scroll
+let globalPokemonList = []; 
+let filteredPokemonList = []; 
+let currentIndex = 0; 
+const ITEMS_PER_PAGE = 30; 
 
-// Inicializa a base de dados
 async function init() {
     showInitialSkeletons();
     try {
@@ -30,23 +45,19 @@ async function init() {
             return { name: p.name, id, url: p.url };
         });
 
-        filteredPokemonList = [...globalPokemonList];
-        pokedexGrid.innerHTML = ''; // Remove os skeletons iniciais
-        
-        loadMorePokemons();
+        // Executa o filtro e ordenação inicial padrão
+        applyFiltersAndSorting();
         setupInfiniteScroll();
 
     } catch (error) {
-        pokedexGrid.innerHTML = '<p class="loading">Erro ao conectar com a base de dados central.</p>';
+        pokedexGrid.innerHTML = '<p class="loading">Erro ao conectar com o servidor.</p>';
     }
 }
 
-// Cria blocos cinzas pulsantes (Skeletons) no carregamento inicial da página
 function showInitialSkeletons() {
     pokedexGrid.innerHTML = Array(12).fill('<div class="skeleton-card"></div>').join('');
 }
 
-// Renderiza o próximo lote de Pokémons baseado no scroll atual
 function loadMorePokemons() {
     if (currentIndex >= filteredPokemonList.length) {
         spinner.classList.add('hidden');
@@ -67,15 +78,12 @@ function loadMorePokemons() {
             <div class="skeleton-card" style="width:90px; height:90px; margin: 8px 0; border-radius:50%"></div>
         `;
         pokedexGrid.appendChild(card);
-
-        // Dispara requisição paralela e assíncrona para coletar a imagem e os tipos reais
         fetchCardDetails(pokemon.id, pokemon.url);
     });
 
     currentIndex += ITEMS_PER_PAGE;
 }
 
-// Busca a imagem de alta qualidade e faz o fallback caso ela não exista
 async function fetchCardDetails(id, url) {
     try {
         const res = await fetch(url);
@@ -83,7 +91,6 @@ async function fetchCardDetails(id, url) {
         const cardElement = document.getElementById(`pkmn-${id}`);
         if (!cardElement) return;
 
-        // Fallbacks sequenciais: Arte oficial -> Sprite clássica -> Pokebola genérica de erro
         const imageUrl = data.sprites.other['official-artwork'].front_default || 
                          data.sprites.front_default || 
                          'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png';
@@ -93,7 +100,6 @@ async function fetchCardDetails(id, url) {
             return `<span class="type-badge" style="background-color: ${color}">${t.type.name}</span>`;
         }).join('');
 
-        // Insere os dados reais no esqueleto, substituindo o loading do elemento
         cardElement.innerHTML = `
             <span class="pokemon-id">Nº ${id}</span>
             <h2 class="pokemon-name">${data.name.replace(/-/g, ' ')}</h2>
@@ -101,57 +107,91 @@ async function fetchCardDetails(id, url) {
             <div class="types-container">${typesHTML}</div>
         `;
 
-    } catch (e) { /* Trata falhas mantendo o formato básico estrutural */ }
+    } catch (e) {}
 }
 
-// Configura o observador de scroll nativo (IntersectionObserver)
 function setupInfiniteScroll() {
     const observer = new IntersectionObserver((entries) => {
-        // Se o elemento sentinela entrar na viewport do usuário, carrega mais itens
         if (entries[0].isIntersecting && globalPokemonList.length > 0) {
             loadMorePokemons();
         }
-    }, { rootMargin: '200px' }); // Carrega 200px antes do usuário chegar de fato no fim da tela
+    }, { rootMargin: '200px' });
 
     observer.observe(sentinel);
 }
 
-// Lógica unificada para gerenciar filtros e busca por digitação simultâneos
-let searchDebounce;
-async function handleFilters() {
-    clearTimeout(searchDebounce);
+// CENTRALIZADOR DE FILTROS E ORDENAÇÃO
+let filterDebounce;
+async function applyFiltersAndSorting() {
+    clearTimeout(filterDebounce);
     
-    searchDebounce = setTimeout(async () => {
+    filterDebounce = setTimeout(async () => {
         const searchTerm = searchInput.value.toLowerCase().trim();
+        const selectedGen = generationFilter.value;
         const selectedType = typeFilter.value;
+        const selectedOrder = sortOrder.value;
 
         pokedexGrid.innerHTML = '';
         currentIndex = 0;
         spinner.classList.remove('hidden');
 
-        // 1. Filtro por Nome/ID via memória interna (Instantâneo)
-        let results = globalPokemonList.filter(p => p.name.includes(searchTerm) || p.id.toString() === searchTerm);
+        // 1. APLICAR FILTRO DE BUSCA TEXTUAL E GERAÇÃO (Trabalha localmente em memória)
+        let results = globalPokemonList.filter(pokemon => {
+            // Valida termo de busca
+            const matchesSearch = pokemon.name.includes(searchTerm) || pokemon.id.toString() === searchTerm;
+            
+            // Valida intervalo de geração
+            let matchesGen = true;
+            if (selectedGen !== 'all') {
+                const range = generationRanges[selectedGen];
+                // Caso seja a geração 8, ajustamos uma margem de segurança para formas de Galar estendidas
+                if(selectedGen === '8') {
+                    matchesGen = pokemon.id >= range.min && pokemon.id <= 905;
+                } else {
+                    matchesGen = pokemon.id >= range.min && pokemon.id <= range.max;
+                }
+            }
+            
+            return matchesSearch && matchesGen;
+        });
 
-        // 2. Filtro por tipo (Se selecionado, precisamos verificar individualmente via API)
+        // 2. APLICAR FILTRO DE TIPO (Caso requisitado)
         if (selectedType) {
-            pokedexGrid.innerHTML = '<p class="loading">Filtrando por tipo elemental...</p>';
+            pokedexGrid.innerHTML = '<p class="loading">Cruzando tipos e gerações...</p>';
             try {
                 const typeRes = await fetch(`https://pokeapi.co/api/v2/type/${selectedType}`);
                 const typeData = await typeRes.json();
                 const pokemonsOfType = typeData.pokemon.map(p => p.pokemon.name);
                 
-                // Cruza os dados da busca textual com os dados vindos do filtro de tipo
                 results = results.filter(p => pokemonsOfType.includes(p.name));
-            } catch (err) { /* Falha de conexão com filtro */ }
+            } catch (err) { console.error(err); }
+        }
+
+        // 3. APLICAR ORDENAÇÃO DINÂMICA
+        if (selectedOrder === 'id-asc') {
+            results.sort((a, b) => a.id - b.id);
+        } else if (selectedOrder === 'id-desc') {
+            results.sort((a, b) => b.id - a.id);
+        } else if (selectedOrder === 'name-asc') {
+            results.sort((a, b) => a.name.localeCompare(b.name));
         }
 
         filteredPokemonList = results;
         pokedexGrid.innerHTML = '';
-        loadMorePokemons();
-    }, 400); // 400ms de delay para evitar requisições desnecessárias enquanto digita
+        
+        if (filteredPokemonList.length === 0) {
+            pokedexGrid.innerHTML = '<p class="loading">Nenhum Pokémon encontrado com essa combinação de filtros.</p>';
+            spinner.classList.add('hidden');
+        } else {
+            loadMorePokemons();
+        }
+    }, 300);
 }
 
-searchInput.addEventListener('input', handleFilters);
-typeFilter.addEventListener('change', handleFilters);
+// Escutadores de eventos para qualquer mudança nos controles
+searchInput.addEventListener('input', applyFiltersAndSorting);
+generationFilter.addEventListener('change', applyFiltersAndSorting);
+typeFilter.addEventListener('change', applyFiltersAndSorting);
+sortOrder.addEventListener('change', applyFiltersAndSorting);
 
 init();
