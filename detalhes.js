@@ -194,6 +194,15 @@ window.toggleSpriteMode = function(mode) {
     document.getElementById('main-pokemon-image').src = artworkUrl || 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png';
 };
 
+window.openDetailsTab = function(tab) {
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tab);
+    });
+    document.querySelectorAll('.tab-panel').forEach(panel => {
+        panel.classList.toggle('active', panel.id === `${tab}-panel`);
+    });
+};
+
 window.playCry = function() {
     audioPlayer.play().catch(e => console.log("Áudio indisponível"));
 };
@@ -346,49 +355,66 @@ function renderPage(damageRelations) {
         </div>
 
         <img id="main-pokemon-image" class="detail-img" src="${defaultImg}" alt="${name}">
-        
-        <div class="info-section">
-            <h3>Atributos Base (Stats)</h3>
-            <div style="margin-top: 12px;">
-                ${statsHTML}
-                <div class="stat-row" style="margin-top: 16px; padding-top: 12px; border-top: 1px dashed var(--border-color); font-weight: bold;">
-                    <span class="stat-name" style="color: #ffffff;">TOTAL</span>
-                    <span class="stat-value" style="color: var(--primary); width: auto; text-align: left; padding-left: 5px;">${totalStatsValue}</span>
+
+        <div class="detail-tabs">
+            <div class="tabs-nav">
+                <button class="tab-btn active" data-tab="status" onclick="openDetailsTab('status')">Status</button>
+                <button class="tab-btn" data-tab="evolutions" onclick="openDetailsTab('evolutions')">Evoluções</button>
+                <button class="tab-btn" data-tab="locations" onclick="openDetailsTab('locations')">Localizações</button>
+                <button class="tab-btn" data-tab="attacks" onclick="openDetailsTab('attacks')">Ataques</button>
+            </div>
+
+            <div id="status-panel" class="tab-panel active">
+                <div class="info-section">
+                    <h3>Status</h3>
+                    <div style="margin-top: 12px;">
+                        ${statsHTML}
+                        <div class="stat-row" style="margin-top: 16px; padding-top: 12px; border-top: 1px dashed var(--border-color); font-weight: bold;">
+                            <span class="stat-name" style="color: #ffffff;">TOTAL</span>
+                            <span class="stat-value" style="color: var(--primary); width: auto; text-align: left; padding-left: 5px;">${totalStatsValue}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <h3>Eficácia de Dano Sofrido</h3>
+                    ${weaknessesHTML ? `<div class="damage-group"><div class="damage-group-title">Fraquezas:</div><div class="damage-badges-grid">${weaknessesHTML}</div></div>` : ''}
+                    ${resistancesHTML ? `<div class="damage-group"><div class="damage-group-title">Resistências:</div><div class="damage-badges-grid">${resistancesHTML}</div></div>` : ''}
+                    ${immunitiesHTML ? `<div class="damage-group"><div class="damage-group-title">Imunidades:</div><div class="damage-badges-grid">${immunitiesHTML}</div></div>` : ''}
+                </div>
+
+                <div class="info-section">
+                    <h3>Medidas Gerais</h3>
+                    <div class="specs-grid">
+                        <p><strong>Altura:</strong> ${(height / 10).toFixed(1)} m</p>
+                        <p><strong>Peso:</strong> ${(weight / 10).toFixed(1)} kg</p>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <div class="info-section">
-            <h3>Eficácia de Dano Sofrido</h3>
-            ${weaknessesHTML ? `<div class="damage-group"><div class="damage-group-title">Fraquezas:</div><div class="damage-badges-grid">${weaknessesHTML}</div></div>` : ''}
-            ${resistancesHTML ? `<div class="damage-group"><div class="damage-group-title">Resistências:</div><div class="damage-badges-grid">${resistancesHTML}</div></div>` : ''}
-            ${immunitiesHTML ? `<div class="damage-group"><div class="damage-group-title">Imunidades:</div><div class="damage-badges-grid">${immunitiesHTML}</div></div>` : ''}
-        </div>
-
-        <div class="info-section">
-            <h3>Medidas Gerais</h3>
-            <div class="specs-grid">
-                <p><strong>Altura:</strong> ${(height / 10).toFixed(1)} m</p>
-                <p><strong>Peso:</strong> ${(weight / 10).toFixed(1)} kg</p>
+            <div id="evolutions-panel" class="tab-panel">
+                <div class="info-section">
+                    <h3>Evoluções</h3>
+                    <div class="evolution-chain-container">${evolutionsHTML}</div>
+                </div>
             </div>
-        </div>
 
-        <div class="info-section">
-            <h3>Linha de Evolução e Requisitos</h3>
-            <div class="evolution-chain-container">${evolutionsHTML}</div>
-        </div>
-
-        <div class="info-section">
-            <h3>Onde Capturar (Selvagem)</h3>
-            <div id="location-dynamic-area" style="margin-top: 10px;">
-                ${renderLocationsBlock()}
+            <div id="locations-panel" class="tab-panel">
+                <div class="info-section">
+                    <h3>Localizações</h3>
+                    <div id="location-dynamic-area" style="margin-top: 10px;">
+                        ${renderLocationsBlock()}
+                    </div>
+                </div>
             </div>
-        </div>
 
-        <div class="info-section">
-            <h3>Lista de Ataques Aprendidos</h3>
-            <div id="moves-dynamic-area" style="margin-top: 10px;">
-                ${renderMovesBlock()}
+            <div id="attacks-panel" class="tab-panel">
+                <div class="info-section">
+                    <h3>Ataques</h3>
+                    <div id="moves-dynamic-area" style="margin-top: 10px;">
+                        ${renderMovesBlock()}
+                    </div>
+                </div>
             </div>
         </div>
     `;
