@@ -7,228 +7,348 @@ const typeColors = {
 };
 
 const detailsContainer = document.getElementById('pokemon-details');
-const pageWrapper = document.getElementById('detail-page-wrapper');
 const audioPlayer = document.getElementById('pokemon-cry');
+const versionContainer = document.getElementById('version-selector-container');
+const versionSelect = document.getElementById('game-version-select');
 
 const urlParams = new URLSearchParams(window.location.search);
 const pokemonId = urlParams.get('id');
 
+// Estados globais da página de detalhes
+let currentPokemonData = null;
+let currentEncountersData = [];
+let currentEvolutionChain = [];
+let availableVersions = [];
+let selectedVersion = "";
+let selectedMoveMethod = "all"; // 'all', 'level-up' ou 'machine'
+let showShiny = false;
+
 async function fetchPokemonDetails() {
     if (!pokemonId) {
-        detailsContainer.innerHTML = '<p>Nenhum Pokémon selecionado.</p>';
+        detailsContainer.innerHTML = '<p class="loading">Nenhum Pokémon selecionado.</p>';
         return;
     }
 
     try {
-        // 1. Coleta dados do Pokémon base
         const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${pokemonId}`);
-        const pokemon = await res.json();
+        currentPokemonData = await res.json();
 
-        // 2. Define o fundo dinâmico com base no tipo principal do Pokémon
-        const primaryType = pokemon.types[0].type.name;
-        const mainColor = typeColors[primaryType] || '#1e1e24';
-        pageWrapper.style.backgroundColor = `${mainColor}22`; // Adiciona transparência em Hex (22)
+        const encounterRes = await fetch(currentPokemonData.location_area_encounters);
+        currentEncountersData = await encounterRes.json();
 
-        // 3. Coleta os dados das fraquezas e vantagens (Tabela de Tipos)
-        const damageRelations = await calculateWeaknesses(pokemon.types);
+        const damageRelations = await calculateWeaknesses(currentPokemonData.types);
 
-        // 4. Coleta os dados da cadeia evolutiva de forma segura
-        let evolutionSpecs = [];
         try {
-            const speciesRes = await fetch(pokemon.species.url);
+            const speciesRes = await fetch(currentPokemonData.species.url);
             const speciesData = await speciesRes.json();
             const evolutionRes = await fetch(speciesData.evolution_chain.url);
             const evolutionData = await evolutionRes.json();
-            const evolutionNames = parseEvolutions(evolutionData.chain);
+            currentEvolutionChain = await parseEvolutionChainDetails(evolutionData.chain);
+        } catch (e) {
+            currentEvolutionChain = [];
+        }
 
-            evolutionSpecs = await Promise.all(evolutionNames.map(async (name) => {
-                try {
-                    const pRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${name}`);
-                    const pData = await pRes.json();
-                    return {
-                        name, id: pData.id,
-                        img: pData.sprites.front_default || pData.sprites.other['official-artwork'].front_default
-                    };
-                } catch (e) {
-                    return { name, id: null, img: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png' };
-                }
-            }));
-        } catch (e) { /* Trata espécies sem cadeias lineares (Megas) */ }
-
-        renderDetails(pokemon, evolutionSpecs, damageRelations);
+        buildVersionList();
+        renderPage(damageRelations);
 
     } catch (error) {
-        detailsContainer.innerHTML = '<p>Erro ao carregar detalhes do Pokémon.</p>';
+        detailsContainer.innerHTML = '<p class="loading">Erro crítico ao processar dados avançados.</p>';
     }
 }
 
-// CALCULA MATEMATICAMENTE AS FRAQUEZAS, RESISTÊNCIAS E IMUNIDADES (Suporta tipo duplo)
 async function calculateWeaknesses(types) {
-    // Inicializa todos os tipos do jogo com multiplicador neutro de dano (1x)
     const totalRelations = {};
     Object.keys(typeColors).forEach(type => totalRelations[type] = 1.0);
-
-    // Faz requisições para os tipos que o Pokémon possui e multiplica suas fraquezas
     for (const typeSlot of types) {
         const res = await fetch(typeSlot.type.url);
         const typeData = await res.json();
-
-        // Alvos que dão 2x de dano neste tipo
         typeData.damage_relations.double_damage_from.forEach(t => totalRelations[t.name] *= 2.0);
-        // Alvos que dão 0.5x de dano neste tipo
         typeData.damage_relations.half_damage_from.forEach(t => totalRelations[t.name] *= 0.5);
-        // Alvos que dão 0x de dano (Imunidade)
         typeData.damage_relations.no_damage_from.forEach(t => totalRelations[t.name] *= 0.0);
     }
-
     return totalRelations;
 }
 
-function parseEvolutions(chain) {
-    let evoChain = [];
-    let current = chain;
+async function parseEvolutionChainDetails(chainNode) {
+    let parts = [];
+    let current = chainNode;
+
     while (current) {
-        evoChain.push(current.species.name);
+        const name = current.species.name;
+        let img = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png';
+        let id = null;
+        let triggerInfo = "Forma Inicial";
+
+        try {
+            const pRes = await fetch(`https://pokeapi.co/api/v2/pokemon/${name}`);
+            const pData = await pRes.json();
+            id = pData.id;
+            img = pData.sprites.other['official-artwork'].front_default || pData.sprites.front_default;
+        } catch (e) {}
+
+        if (current.evolution_details && current.evolution_details.length > 0) {
+            const details = current.evolution_details[0];
+            if (details.trigger.name === 'level-up') {
+                triggerInfo = details.min_level ? `Nv. ${details.min_level}` : "Level Up";
+                if (details.min_happiness) triggerInfo += " + Felicidade";
+                if (details.known_move_type) triggerInfo += ` + Golpe ${details.known_move_type.name}`;
+            } else if (details.trigger.name === 'use-item') {
+                triggerInfo = `${details.item.name.replace(/-/g, ' ')}`;
+            } else if (details.trigger.name === 'trade') {
+                triggerInfo = "Troca (Trade)";
+                if (details.held_item) triggerInfo += ` com ${details.held_item.name.replace(/-/g, ' ')}`;
+            } else {
+                triggerInfo = details.trigger.name.replace(/-/g, ' ');
+            }
+        }
+
+        parts.push({ name, id, img, trigger: triggerInfo });
         current = current.evolves_to[0];
     }
-    return evoChain;
+    return parts;
 }
 
-// Dispara o som original mapeado pela API
-window.playCry = function() {
-    audioPlayer.play().catch(e => console.log("Áudio bloqueado pelas políticas do navegador"));
+function buildVersionList() {
+    const versionsSet = new Set();
+    currentPokemonData.moves.forEach(m => {
+        m.version_group_details.forEach(vg => versionsSet.add(vg.version_group.name));
+    });
+    availableVersions = Array.from(versionsSet).sort();
+    
+    if (availableVersions.length > 0) {
+        if (!selectedVersion || !availableVersions.includes(selectedVersion)) {
+            selectedVersion = availableVersions[availableVersions.length - 1];
+        }
+        versionSelect.innerHTML = availableVersions.map(v => 
+            `<option value="${v}" ${v === selectedVersion ? 'selected' : ''}>${v.replace(/-/g, ' ')}</option>`
+        ).join('');
+        versionContainer.classList.remove('hidden');
+    }
+}
+
+versionSelect.addEventListener('change', (e) => {
+    selectedVersion = e.target.value;
+    document.getElementById('location-dynamic-area').innerHTML = renderLocationsBlock();
+    document.getElementById('moves-dynamic-area').innerHTML = renderMovesBlock();
+});
+
+window.filterMovesMethod = function(method) {
+    selectedMoveMethod = method;
+    document.getElementById('btn-move-all').classList.toggle('active', method === 'all');
+    document.getElementById('btn-move-lvl').classList.toggle('active', method === 'level-up');
+    document.getElementById('btn-move-tm').classList.toggle('active', method === 'machine');
+    document.getElementById('moves-table-wrapper').innerHTML = renderMovesTableOnly();
 };
 
-function renderDetails(pokemon, evolutions, damageRelations) {
-    const { name, id, height, weight, sprites, types, stats, moves } = pokemon;
+window.toggleSpriteMode = function(mode) {
+    showShiny = (mode === 'shiny');
+    document.getElementById('btn-normal').classList.toggle('active', !showShiny);
+    document.getElementById('btn-shiny').classList.toggle('active', showShiny);
     
-    // Configura o player de som com o arquivo .mp3 oficial retornado pela PokeAPI
+    const artworkUrl = showShiny 
+        ? (currentPokemonData.sprites.other['official-artwork'].front_shiny || currentPokemonData.sprites.front_shiny)
+        : (currentPokemonData.sprites.other['official-artwork'].front_default || currentPokemonData.sprites.front_default);
+        
+    document.getElementById('main-pokemon-image').src = artworkUrl || 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png';
+};
+
+window.playCry = function() {
+    audioPlayer.play().catch(e => console.log("Áudio indisponível"));
+};
+
+function renderLocationsBlock() {
+    const gameLocations = currentEncountersData.filter(encounter => 
+        encounter.version_details.some(vd => selectedVersion.includes(vd.version.name) || vd.version.name.includes(selectedVersion))
+    );
+
+    if (gameLocations.length === 0) {
+        return `<p style="color: var(--text-muted); font-size:0.9rem;">Não capturável de forma selvagem nesta versão.</p>`;
+    }
+
+    return `
+        <ul class="location-list">
+            ${gameLocations.slice(0, 5).map(loc => `<li>${loc.location_area.name.replace(/-/g, ' ')}</li>`).join('')}
+            ${gameLocations.length > 5 ? `<li style="border-left-color: #777; font-size:0.85rem;">...e mais ${gameLocations.length - 5} locais.</li>` : ''}
+        </ul>
+    `;
+}
+
+function renderMovesBlock() {
+    return `
+        <div class="sprite-toggle-container" style="justify-content: flex-start; margin-bottom: 15px;">
+            <button id="btn-move-all" class="toggle-btn active" onclick="filterMovesMethod('all')">Todos</button>
+            <button id="btn-move-lvl" class="toggle-btn" onclick="filterMovesMethod('level-up')">Level Up</button>
+            <button id="btn-move-tm" class="toggle-btn" onclick="filterMovesMethod('machine')">TMs / HMs</button>
+        </div>
+        <div id="moves-table-wrapper">
+            ${renderMovesTableOnly()}
+        </div>
+    `;
+}
+
+function renderMovesTableOnly() {
+    const currentMoves = [];
+
+    currentPokemonData.moves.forEach(moveEntry => {
+        const matchVersion = moveEntry.version_group_details.find(vg => vg.version_group.name === selectedVersion);
+        
+        if (matchVersion) {
+            const method = matchVersion.move_learn_method.name;
+            const level = matchVersion.level_learned_at;
+            
+            const matchesFilter = (selectedMoveMethod === 'all' && (method === 'level-up' || method === 'machine')) || 
+                                  (selectedMoveMethod === method);
+
+            if (matchesFilter) {
+                currentMoves.push({
+                    name: moveEntry.move.name.replace(/-/g, ' '),
+                    method: method === 'level-up' ? 'Level' : 'TM/HM',
+                    level: level,
+                    rawMethod: method
+                });
+            }
+        }
+    });
+
+    if (currentMoves.length === 0) {
+        return `<p style="color: var(--text-muted); font-size:0.9rem; padding: 10px 0;">Nenhum golpe encontrado para este filtro nesta versão do jogo.</p>`;
+    }
+
+    currentMoves.sort((a, b) => {
+        if (a.rawMethod !== b.rawMethod) return a.rawMethod === 'level-up' ? -1 : 1;
+        return a.level - b.level;
+    });
+
+    return `
+        <table class="moves-table">
+            <thead>
+                <tr>
+                    <th>Golpe</th>
+                    <th>Método</th>
+                    <th>Requisito</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${currentMoves.map(m => `
+                    <tr>
+                        <td style="font-weight:600; color:#fff;">${m.name}</td>
+                        <td><span class="move-method-badge ${m.rawMethod === 'level-up' ? 'method-level' : 'method-machine'}">${m.method}</span></td>
+                        <td>${m.rawMethod === 'level-up' ? `Nv. ${m.level}` : 'Item TM/HM'}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+function renderPage(damageRelations) {
+    const { name, id, height, weight, sprites, types, stats } = currentPokemonData;
+    
     const cryUrl = sprites.cries?.latest || sprites.cries?.legacy || "";
     audioPlayer.src = cryUrl;
 
-    const imageUrl = sprites.other['official-artwork'].front_default || sprites.front_default;
+    const defaultImg = sprites.other['official-artwork'].front_default || sprites.front_default;
     const typesHTML = types.map(t => `<span class="type-badge" style="background-color: ${typeColors[t.type.name]}">${t.type.name}</span>`).join('');
-    const limitedMoves = moves.slice(0, 6).map(m => `<li>${m.move.name.replace(/-/g, ' ')}</li>`).join('');
 
-    // 1. MONTA O HTML DOS STATUS BASE (BARRA DE PROGRESSO COLORIDA)
-    // Mapeamento simples de rótulos e cores para as barras
-    const statStyles = {
-        hp: '#ff4f4f', attack: '#f57322', defense: '#f5c422',
-        'special-attack': '#4facfe', 'special-defense': '#38ef7d', speed: '#f34fbb'
-    };
+    // --- NOVA LÓGICA: Calcula o total dos atributos ---
+    const totalStatsValue = stats.reduce((sum, currentStat) => sum + currentStat.base_stat, 0);
 
+    const statStyles = { hp: '#ff4f4f', attack: '#f57322', defense: '#f5c422', 'special-attack': '#4facfe', 'special-defense': '#38ef7d', speed: '#f34fbb' };
     const statsHTML = stats.map(s => {
-        const percentage = Math.min((s.base_stat / 200) * 100, 100); // 200 como teto máximo para cálculo de proporção visual
-        const barColor = statStyles[s.stat.name] || '#777';
+        const percentage = Math.min((s.base_stat / 200) * 100, 100);
         return `
             <div class="stat-row">
                 <span class="stat-name">${s.stat.name.replace('special-', 'sp. ')}</span>
                 <span class="stat-value">${s.base_stat}</span>
-                <div class="stat-bar-container">
-                    <div class="stat-bar" style="width: ${percentage}%; background-color: ${barColor}"></div>
-                </div>
+                <div class="stat-bar-container"><div class="stat-bar" style="width: ${percentage}%; background-color: ${statStyles[s.stat.name] || '#777'}"></div></div>
             </div>
         `;
     }).join('');
 
-    // 2. MONTA O HTML SEPARADO POR CONTROLE DE DANOS (FRAQUEZAS E RESISTÊNCIAS)
-    let weaknessesHTML = '';
-    let resistancesHTML = '';
-    let immunitiesHTML = '';
-
+    let weaknessesHTML = '', resistancesHTML = '', immunitiesHTML = '';
     Object.entries(damageRelations).forEach(([typeName, multiplier]) => {
-        const color = typeColors[typeName];
-        const badgeElement = `
-            <div class="damage-badge-wrapper">
-                <span class="type-badge" style="background-color: ${color}">${typeName}</span>
-                <span class="damage-multiplier ${multiplier > 1 ? 'weak' : multiplier < 1 && multiplier > 0 ? 'resist' : 'immune'}">${multiplier}x</span>
-            </div>
-        `;
-
-        if (multiplier > 1) weaknessesHTML += badgeElement;
-        else if (multiplier < 1 && multiplier > 0) resistancesHTML += badgeElement;
-        else if (multiplier === 0) immunitiesHTML += badgeElement;
+        if (multiplier === 1.0) return;
+        const badge = `<div class="damage-badge-wrapper"><span class="type-badge" style="background-color: ${typeColors[typeName]}">${typeName}</span><span class="damage-multiplier ${multiplier > 1 ? 'weak' : multiplier < 1 && multiplier > 0 ? 'resist' : 'immune'}">${multiplier}x</span></div>`;
+        if (multiplier > 1) weaknessesHTML += badge;
+        else if (multiplier < 1 && multiplier > 0) resistancesHTML += badge;
+        else if (multiplier === 0) immunitiesHTML += badge;
     });
 
-    // 3. CADEIA EVOLUTIVA
     let evolutionsHTML = '';
-    if(evolutions.length > 0) {
-        evolutionsHTML = evolutions.map((evo, index) => {
-            const isCurrent = evo.id === id ? 'style="border-color: var(--primary); background: #29292e;"' : '';
-            const linkHTML = evo.id 
+    if (currentEvolutionChain.length > 0) {
+        evolutionsHTML = currentEvolutionChain.map((evo, index) => {
+            const isCurrent = evo.id === id ? 'style="border-color: var(--primary); background: #26262b;"' : '';
+            const link = evo.id 
                 ? `<a href="detalhes.html?id=${evo.id}" class="evolution-step" ${isCurrent}>
                     <img src="${evo.img}" alt="${evo.name}">
                     <span>${evo.name}</span>
+                    <span class="evolution-trigger">${evo.trigger}</span>
                    </a>`
-                : `<div class="evolution-step"><span>${evo.name}</span></div>`;
-                
-            const arrow = (index < evolutions.length - 1) ? '<span class="evolution-arrow">→</span>' : '';
-            return linkHTML + arrow;
+                : `<div class="evolution-step"><span>${evo.name}</span><span class="evolution-trigger">${evo.trigger}</span></div>`;
+            const arrow = (index < currentEvolutionChain.length - 1) ? '<span class="evolution-arrow">→</span>' : '';
+            return link + arrow;
         }).join('');
     } else {
-        evolutionsHTML = '<p style="color:var(--text-muted); font-size:0.9rem;">Dados de linhagem indisponíveis.</p>';
+        evolutionsHTML = '<p style="color:var(--text-muted);">Forma única ou variante alternativa sem cadeia linear mapeada.</p>';
     }
 
     detailsContainer.innerHTML = `
         <span class="pokemon-id">Nº ${id}</span>
-        <h2 class="pokemon-name" style="font-size: 2.2rem; margin-bottom:5px; text-transform: capitalize;">${name.replace(/-/g, ' ')}</h2>
-        
+        <h2 class="pokemon-name">${name.replace(/-/g, ' ')}</h2>
         <div class="types-container">${typesHTML}</div>
         
-        ${cryUrl ? `<button class="cry-btn" onclick="playCircle || playCry()">🔊 Ouvir Grito original</button>` : ''}
+        ${cryUrl ? `<button class="cry-btn" onclick="playCry()">🔊 Ouvir Grito Original</button>` : ''}
         
-        <img class="detail-img" src="${imageUrl}" alt="${name}">
+        <div class="sprite-toggle-container">
+            <button id="btn-normal" class="toggle-btn active" onclick="toggleSpriteMode('normal')">Versão Normal</button>
+            <button id="btn-shiny" class="toggle-btn" onclick="toggleSpriteMode('shiny')">✨ Versão Shiny</button>
+        </div>
+
+        <img id="main-pokemon-image" class="detail-img" src="${defaultImg}" alt="${name}">
         
         <div class="info-section">
             <h3>Atributos Base (Stats)</h3>
-            <div style="margin-top: 10px;">
+            <div style="margin-top: 12px;">
                 ${statsHTML}
+                <div class="stat-row" style="margin-top: 16px; padding-top: 12px; border-top: 1px dashed var(--border-color); font-weight: bold;">
+                    <span class="stat-name" style="color: #ffffff;">TOTAL</span>
+                    <span class="stat-value" style="color: var(--primary); width: auto; text-align: left; padding-left: 5px;">${totalStatsValue}</span>
+                </div>
             </div>
         </div>
 
         <div class="info-section">
             <h3>Eficácia de Dano Sofrido</h3>
-            
-            ${weaknessesHTML ? `
-                <div class="damage-group">
-                    <div class="damage-group-title">Fraquezas (Toma mais dano):</div>
-                    <div class="damage-badges-grid">${weaknessesHTML}</div>
-                </div>
-            ` : ''}
-
-            ${resistancesHTML ? `
-                <div class="damage-group">
-                    <div class="damage-group-title">Resistências (Toma menos dano):</div>
-                    <div class="damage-badges-grid">${resistancesHTML}</div>
-                </div>
-            ` : ''}
-
-            ${immunitiesHTML ? `
-                <div class="damage-group">
-                    <div class="damage-group-title">Imunidades (Dano Zero):</div>
-                    <div class="damage-badges-grid">${immunitiesHTML}</div>
-                </div>
-            ` : ''}
+            ${weaknessesHTML ? `<div class="damage-group"><div class="damage-group-title">Fraquezas:</div><div class="damage-badges-grid">${weaknessesHTML}</div></div>` : ''}
+            ${resistancesHTML ? `<div class="damage-group"><div class="damage-group-title">Resistências:</div><div class="damage-badges-grid">${resistancesHTML}</div></div>` : ''}
+            ${immunitiesHTML ? `<div class="damage-group"><div class="damage-group-title">Imunidades:</div><div class="damage-badges-grid">${immunitiesHTML}</div></div>` : ''}
         </div>
 
         <div class="info-section">
-            <h3>Medidas</h3>
-            <p style="margin-bottom: 6px;"><strong>Altura:</strong> ${(height / 10).toFixed(1)} m</p>
-            <p><strong>Peso:</strong> ${(weight / 10).toFixed(1)} kg</p>
-        </div>
-
-        <div class="info-section">
-            <h3>Linha de Evolução</h3>
-            <div class="evolution-chain-container">
-                ${evolutionsHTML}
+            <h3>Medidas Gerais</h3>
+            <div class="specs-grid">
+                <p><strong>Altura:</strong> ${(height / 10).toFixed(1)} m</p>
+                <p><strong>Peso:</strong> ${(weight / 10).toFixed(1)} kg</p>
             </div>
         </div>
 
         <div class="info-section">
-            <h3>Golpes Principais</h3>
-            <ul class="moves-grid">
-                ${limitedMoves || '<li>Nenhum golpe listado</li>'}
-            </ul>
+            <h3>Linha de Evolução e Requisitos</h3>
+            <div class="evolution-chain-container">${evolutionsHTML}</div>
+        </div>
+
+        <div class="info-section">
+            <h3>Onde Capturar (Selvagem)</h3>
+            <div id="location-dynamic-area" style="margin-top: 10px;">
+                ${renderLocationsBlock()}
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h3>Lista de Ataques Aprendidos</h3>
+            <div id="moves-dynamic-area" style="margin-top: 10px;">
+                ${renderMovesBlock()}
+            </div>
         </div>
     `;
 }

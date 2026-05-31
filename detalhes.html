@@ -8,17 +8,22 @@
 </head>
 <body>
 
-    <div id="detail-page-wrapper" class="detail-page-wrapper">
-        <div class="pokedex-container detail-container">
+    <div class="detail-page-container">
+        <div class="pokedex-container detail-card">
             <a href="index.html" class="back-btn">← Voltar para a Lista</a>
             
+            <div id="version-selector-container" class="version-selector-container hidden">
+                <label for="game-version-select">Visualizar dados do jogo:</label>
+                <select id="game-version-select"></select>
+            </div>
+
             <div id="pokemon-details">
-                <p class="loading">Carregando dados, atributos e fraquezas...</p>
+                <p class="loading">Carregando dados expansivos, linhagem e golpes...</p>
             </div>
         </div>
     </div>
 
-    <audio id="pokemon-cry" th:src=""></audio>
+    <audio id="pokemon-cry"></audio>
 
     <script src="detalhes.js"></script>
 </body>
