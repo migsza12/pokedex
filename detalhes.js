@@ -48,12 +48,54 @@ async function fetchPokemonDetails() {
             currentEvolutionChain = [];
         }
 
+        // --- NOVA LÓGICA: Plano de fundo baseado na tipagem do Pokémon ---
+        applyDynamicBackground(currentPokemonData.types);
+
         buildVersionList();
         renderPage(damageRelations);
 
     } catch (error) {
         detailsContainer.innerHTML = '<p class="loading">Erro crítico ao processar dados avançados.</p>';
     }
+}
+
+// Função para aplicar o gradiente de cor dinâmico na página
+function applyDynamicBackground(types) {
+    const detailCard = document.querySelector('.detail-card');
+    if (!detailCard) return;
+
+    // Converte as cores em formato RGB para podermos aplicar uma opacidade/transparência sutil
+    const hexToRgb = (hex) => {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+        } : null;
+    };
+
+    if (types.length >= 2) {
+        // Pokémon de Tipo Duplo (ex: Planta e Venenoso)
+        const type1 = types[0].type.name;
+        const type2 = types[1].type.name;
+        
+        const color1 = hexToRgb(typeColors[type1] || '#1e1e24');
+        const color2 = hexToRgb(typeColors[type2] || '#1e1e24');
+
+        // Cria um gradiente linear diagonal misturando as duas cores com 25% de opacidade (0.25)
+        detailCard.style.background = `linear-gradient(135deg, rgba(${color1.r}, ${color1.g}, ${color1.b}, 0.25) 0%, rgba(${color2.r}, ${color2.g}, ${color2.b}, 0.25) 100%)`;
+    } else {
+        // Pokémon de Tipo Único (ex: Apenas Elétrico)
+        const type1 = types[0].type.name;
+        const color = hexToRgb(typeColors[type1] || '#1e1e24');
+
+        // Cria um gradiente suave usando a mesma cor (vai do tom suave para um quase transparente)
+        detailCard.style.background = `linear-gradient(135deg, rgba(${color.r}, ${color.g}, ${color.b}, 0.3) 0%, rgba(${color.r}, ${color.g}, ${color.b}, 0.05) 100%)`;
+    }
+    
+    // Adiciona uma borda brilhante sutil combinando com o tipo primário do Pokémon
+    const primaryColor = typeColors[types[0].type.name] || '#29292e';
+    detailCard.style.borderColor = primaryColor;
 }
 
 async function calculateWeaknesses(types) {
@@ -250,7 +292,6 @@ function renderPage(damageRelations) {
     const defaultImg = sprites.other['official-artwork'].front_default || sprites.front_default;
     const typesHTML = types.map(t => `<span class="type-badge" style="background-color: ${typeColors[t.type.name]}">${t.type.name}</span>`).join('');
 
-    // --- NOVA LÓGICA: Calcula o total dos atributos ---
     const totalStatsValue = stats.reduce((sum, currentStat) => sum + currentStat.base_stat, 0);
 
     const statStyles = { hp: '#ff4f4f', attack: '#f57322', defense: '#f5c422', 'special-attack': '#4facfe', 'special-defense': '#38ef7d', speed: '#f34fbb' };
